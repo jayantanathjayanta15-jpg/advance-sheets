@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Employee Advance Payment Request</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            background: linear-gradient(135deg, #6b7280, #e5e7eb);
+            font-family: 'Arial', sans-serif;
+        }
+        .form-container {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s ease;
+        }
+        .form-container:hover {
+            transform: translateY(-5px);
+        }
+        input, textarea, select {
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 10px;
+            transition: border-color 0.3s ease, box-shadow 0.3s ease;
+        }
+        input:focus, textarea:focus, select:focus {
+            border-color: #4f46e5;
+            box-shadow: 0 0 8px rgba(79, 70, 229, 0.3);
+            outline: none;
+        }
+        label {
+            font-weight: 600;
+            color: #374151;
+        }
+        .submit-btn {
+            background: linear-gradient(to right, #4f46e5, #7c3aed);
+            padding: 12px;
+            border-radius: 8px;
+            font-weight: bold;
+            transition: background 0.3s ease, transform 0.2s ease;
+        }
+        .submit-btn:hover {
+            background: linear-gradient(to right, #4338ca, #6d28d9);
+            transform: scale(1.05);
+        }
+        #formMessage {
+            font-size: 1rem;
+            font-weight: 500;
+        }
+    </style>
+</head>
+<body class="flex items-center justify-center min-h-screen">
+    <div class="form-container p-8 w-full max-w-md">
+        <h1 class="text-2xl font-bold text-center mb-6 text-gray-800">Advance Payment Request Form</h1>
+        <form id="paymentRequestForm" class="space-y-4">
+            <div>
+                <label for="employeeName" class="block text-sm font-medium text-gray-700">Full Name</label>
+                <input type="text" id="employeeName" name="EmployeeName" class="mt-1 w-full" required>
+            </div>
+            <div>
+                <label for="employeeId" class="block text-sm font-medium text-gray-700">Employee ID</label>
+                <input type="text" id="employeeId" name="EmployeeId" class="mt-1 w-full" required>
+            </div>
+            <div>
+                <label for="department" class="block text-sm font-medium text-gray-700">Department</label>
+                <input type="text" id="department" name="Department" class="mt-1 w-full" required>
+            </div>
+            <div>
+                <label for="amount" class="block text-sm font-medium text-gray-700">Requested Amount (₹)</label>
+                <input type="number" id="amount" name="Amount" min="1" class="mt-1 w-full" required>
+            </div>
+            <div>
+                <label for="reason" class="block text-sm font-medium text-gray-700">Reason for Advance</label>
+                <textarea id="reason" name="Reason" rows="4" class="mt-1 w-full" required></textarea>
+            </div>
+            <div>
+                <label for="repaymentPlan" class="block text-sm font-medium text-gray-700">Proposed Repayment Plan</label>
+                <select id="repaymentPlan" name="RepaymentPlan" class="mt-1 w-full" required>
+                    <option value="" disabled selected>Select a plan</option>
+                    <option value="one-time">One-Time Deduction</option>
+                    <option value="installments">Monthly Installments</option>
+                </select>
+            </div>
+            <div id="installmentsField" class="hidden">
+                <label for="installmentMonths" class="block text-sm font-medium text-gray-700">Number of Months</label>
+                <input type="number" id="installmentMonths" name="InstallmentMonths" min="1" max="12" class="mt-1 w-full">
+            </div>
+            <button type="submit" class="submit-btn w-full text-white">Submit Request</button>
+        </form>
+        <p id="formMessage" class="mt-4 text-center text-gray-600"></p>
+    </div>
+    <script>
+        const form = document.getElementById('paymentRequestForm');
+        const repaymentPlan = document.getElementById('repaymentPlan');
+        const installmentsField = document.getElementById('installmentsField');
+        const formMessage = document.getElementById('formMessage');
+
+        repaymentPlan.addEventListener('change', () => {
+            installmentsField.classList.toggle('hidden', repaymentPlan.value !== 'installments');
+            if (repaymentPlan.value === 'installments') {
+                document.getElementById('installmentMonths').required = true;
+            } else {
+                document.getElementById('installmentMonths').required = false;
+            }
+        });
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData(form);
+            const data = Object.fromEntries(formData);
+
+            // Basic validation
+            if (!data.EmployeeName || !data.EmployeeId || !data.Department || !data.Amount || !data.Reason || !data.RepaymentPlan) {
+                formMessage.textContent = 'Please fill all required fields.';
+                formMessage.classList.add('text-red-500');
+                return;
+            }
+            if (data.Amount <= 0) {
+                formMessage.textContent = 'Please enter a valid amount.';
+                formMessage.classList.add('text-red-500');
+                return;
+            }
+            if (data.RepaymentPlan === 'installments' && (!data.InstallmentMonths || data.InstallmentMonths < 1 || data.InstallmentMonths > 12)) {
+                formMessage.textContent = 'Please enter a valid number of months (1-12).';
+                formMessage.classList.add('text-red-500');
+                return;
+            }
+
+            // Prepare data for SheetDB API using column names as keys
+            const apiData = {
+                data: [{
+                    EmployeeName: data.EmployeeName.trim(),
+                    EmployeeId: data.EmployeeId.trim(),
+                    Department: data.Department.trim(),
+                    Amount: parseFloat(data.Amount),
+                    Reason: data.Reason.trim(),
+                    RepaymentPlan: data.RepaymentPlan,
+                    InstallmentMonths: data.InstallmentMonths ? parseInt(data.InstallmentMonths) : null,
+                    SubmissionDate: new Date().toLocaleDateString('en-IN')
+                }]
+            };
+
+            try {
+                const response = await fetch('https://sheetdb.io/api/v1/oeidg3d21nov1', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify(apiData)
+                });
+
+                const responseData = await response.json();
+                console.log('API response:', responseData);
+
+                if (response.ok) {
+                    formMessage.textContent = 'Request submitted successfully! 😊';
+                    formMessage.classList.remove('text-red-500');
+                    formMessage.classList.add('text-green-500');
+                    form.reset();
+                    installmentsField.classList.add('hidden');
+                } else {
+                    throw new Error(`API Error: ${response.status} - ${responseData.message || response.statusText}`);
+                }
+            } catch (error) {
+                formMessage.textContent = 'Error submitting request. Please check console for details.';
+                formMessage.classList.add('text-red-500');
+                console.error('Submission error:', error);
+            }
+        });
+    </script>
+</body>
+</html>
